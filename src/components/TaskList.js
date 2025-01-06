@@ -1,32 +1,67 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { ToastContainer, toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import "react-toastify/dist/ReactToastify.css";
+import Skeleton from "react-loading-skeleton";  // Import Skeleton for shimmer effect
+import { BASE_URL } from "../config";
 
 const TaskList = () => {
   const [tasks, setTasks] = useState([]);
   const [taskName, setTaskName] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);  // Loading state
+  const navigate = useNavigate();
 
   // Fetch tasks
   useEffect(() => {
-    axios.get("https://merntodo-5d2c99817bd7.herokuapp.com/api/tasks")
-      .then((res) => setTasks(res.data))
-      .catch((err) => console.error(err));
+    axios
+      .get(`${BASE_URL}`)
+      .then((res) => {
+        setTasks(res.data);
+        setLoading(false); // Set loading to false after data is fetched
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false); // Stop loading on error
+      });
   }, []);
 
   // Add a task
   const addTask = () => {
     if (!taskName.trim()) return;
-    axios.post("https://merntodo-5d2c99817bd7.herokuapp.com/api/tasks", { name: taskName })
-      .then((res) => setTasks([...tasks, res.data]))
+    axios
+      .post(`${BASE_URL}`, { name: taskName })
+      .then((res) => {
+        setTasks([...tasks, res.data]);
+        setTaskName("");
+        toast.success("Task added successfully!", {
+          position: "top-center",
+          autoClose: 2000,
+        });
+      })
       .catch((err) => console.error(err));
-    setTaskName("");
   };
 
   // Delete a task
   const deleteTask = (id) => {
-    axios.delete(`https://merntodo-5d2c99817bd7.herokuapp.com/api/tasks/${id}`)
-      .then(() => setTasks(tasks.filter((task) => task._id !== id)))
+    axios
+      .delete(`${BASE_URL}/${id}`)
+      .then(() =>
+        setTasks(tasks.filter((task) => task._id !== id))
+      )
       .catch((err) => console.error(err));
   };
+
+  // Navigate to EditTask
+  const editTask = (id) => {
+    navigate(`/edit-task/${id}`);
+  };
+
+  // Filter tasks based on search term
+  const filteredTasks = tasks.filter((task) =>
+    task.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Styles
   const styles = {
@@ -70,6 +105,10 @@ const TaskList = () => {
       marginLeft: "10px",
       backgroundColor: "#e74c3c",
     },
+    buttonEdit: {
+      marginLeft: "10px",
+      backgroundColor: "#3498db",
+    },
     list: {
       listStyle: "none",
       padding: "0",
@@ -84,26 +123,27 @@ const TaskList = () => {
       alignItems: "center",
       boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
     },
-    responsive: {
-      "@media (max-width: 768px)": {
-        container: {
-          padding: "10px",
-        },
-        input: {
-          width: "100%",
-          marginRight: "0",
-        },
-        button: {
-          width: "100%",
-          marginTop: "10px",
-        },
-      },
+    shimmer: {
+      marginBottom: "10px",
     },
   };
 
   return (
     <div style={styles.container}>
       <h1 style={styles.header}>To-Do App</h1>
+
+      {/* Search Input */}
+      <div style={styles.inputContainer}>
+        <input
+          type="text"
+          placeholder="Search tasks..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={styles.input}
+        />
+      </div>
+
+      {/* Task Input */}
       <div style={styles.inputContainer}>
         <input
           type="text"
@@ -116,19 +156,37 @@ const TaskList = () => {
           Add
         </button>
       </div>
+
+      {/* Task List */}
       <ul style={styles.list}>
-        {tasks.map((task) => (
-          <li key={task._id} style={styles.listItem}>
-            {task.name}
-            <button
-              onClick={() => deleteTask(task._id)}
-              style={{ ...styles.button, ...styles.buttonDelete }}
-            >
-              Delete
-            </button>
-          </li>
-        ))}
+        {loading
+          ? [...Array(5)].map((_, index) => (
+              <li key={index} style={styles.listItem}>
+                <Skeleton width="70%" height={30} style={styles.shimmer} />
+              </li>
+            ))
+          : filteredTasks.map((task) => (
+              <li key={task._id} style={styles.listItem}>
+                {task.name}
+                <div>
+                  <button
+                    onClick={() => editTask(task._id)}
+                    style={{ ...styles.button, ...styles.buttonEdit }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => deleteTask(task._id)}
+                    style={{ ...styles.button, ...styles.buttonDelete }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
       </ul>
+
+      <ToastContainer />
     </div>
   );
 };
